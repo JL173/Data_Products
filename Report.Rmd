@@ -3,12 +3,10 @@ title: "Exploration of National Climatic Data Center Storm Events Data"
 author: "JL"
 date: "02/09/2021"
 output:
-  html_document: default
+  beamer_presentation: default
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
-```
+## Packages
 
 ```{r results = 'none', warning=FALSE, message=FALSE}
 library(tidyverse)
@@ -19,7 +17,7 @@ library(plotly)
 ```
 
 
-```{r, cache=TRUE, results = 'none', warning=FALSE, message=FALSE}
+```{r, echo=FALSE, cache=TRUE, results = 'none', warning=FALSE, message=FALSE}
 
 # Download data
 if (!file.exists("rawdata.csv.bz2")){
@@ -133,10 +131,6 @@ state_harm <- state_n
 # remove temporary dataframes
 rm(state_n, state_p, state_f, state_i)
 
-```
-
-
-```{r, echo = TRUE}
 # plot for the top 20 by total of fatalities and injuries
 g <- ggplot(state_harm, aes(x = values,
                  y = reorder(state_name, number_of_events),
@@ -152,9 +146,7 @@ g <- ggplot(state_harm, aes(x = values,
   labs(x = NULL,
        y = NULL,
        colour = NULL,
-       title = "Destructive Weather Events in the United States",
-       subtitle = "Source: National Climatic Data Center Storm Events 1950 - 2011",
-       caption = "*Damages are estimates\n1950-54 only tornado events recorded\n 1955-92 only tornado, thunderstorm wind and hail events keyed to digital\n1993-95 only tornado, thunderstorm wind and hail events keyed to digital") +
+       title = "Destructive Weather Events in the United States") +
   
   guides(fill = guide_legend(title = NULL)) + 
   
@@ -171,6 +163,9 @@ g <- ggplot(state_harm, aes(x = values,
   
   scale_x_log10(breaks = c(1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7),
                 labels = c("10", "100", "1,000","10,000", "100,000", "1,000,000", "10,000,000"))
+```
 
+---
+```{r, echo=FALSE, fig.height=10, fig.width=6}
 ggplotly(g)
 ```

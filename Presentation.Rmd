@@ -1,0 +1,24 @@
+---
+title: "A Slidy Presentation with a Plotly visual"
+author: "JL"
+date: "09/2021"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## A Plotly visual
+
+```{r echo = FALSE, warning=FALSE, message=FALSE, results='hide'}
+library(plotly)
+library(ggplot2)
+library(dplyr)
+load("g_plot_object.RData")
+```
+
+```{r fig.height=9, fig.width=10}
+ggplotly(g)
+```
+
