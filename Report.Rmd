@@ -1,0 +1,176 @@
+---
+title: "Exploration of National Climatic Data Center Storm Events Data"
+author: "JL"
+date: "02/09/2021"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r results = 'none', warning=FALSE, message=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(stringi)
+library(plotly)
+```
+
+
+```{r, cache=TRUE, results = 'none', warning=FALSE, message=FALSE}
+
+# Download data
+if (!file.exists("rawdata.csv.bz2")){
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", "rawdata.csv.bz2")
+}
+
+# import data into dataframe
+raw <- read.csv("rawdata.csv.bz2")
+
+# collect location IDs for reference and remove duplicate rows
+counties <- select(raw, "STATE__", "STATE", "COUNTY", "COUNTYNAME") %>%
+  distinct(.keep_all = TRUE)
+
+colnames(counties) <- c("state_id", "state_name", "county_id", "county_name")
+
+states <- select(raw, "STATE__", "STATE") %>%
+  distinct(.keep_all = TRUE)
+
+colnames(states) <- c("state_id", "state_name")
+
+# states contains duplicates, over separate IDs.
+# Manually remove against a list of abbreviations
+states <- states[-c(79, 59, 63, 57, 56, 55, 95, 94, 93, 65, 70,
+                    60, 68, 61,  66, 73, 71, 72, 76, 74, 62,
+                    67, 78, 77, 51, 69, 75, 53, 64, 58, 20, 8), ]
+
+
+# trim raw to chosen variables
+clean <- select(raw, c("STATE__", "COUNTY", "BGN_DATE", "BGN_TIME", "EVTYPE", "LENGTH", "WIDTH", "F", "REMARKS", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP"))
+
+# rename columns
+colnames(clean) <- c("state_id", "county_id", "start_date", "start_time", "event", "length", "width", "F", "remarks", "fatalities", "injuries", "property_damage", "property_damage_cat", "crop_damage", "crop_damage_cat")
+
+# cast raw into correct types and formats
+clean$state_id <- as.integer(clean$state_id)
+clean$county_id <- as.integer(clean$county_id)
+
+clean$event <- stri_trans_totitle(as.factor(clean$event))
+
+clean$F <- as.factor(clean$F)
+
+clean$start_date <- as.Date(as.character(
+  strptime(clean$start_date, format = "%m/%d/%Y")))
+
+# We want to include damage_category into damage counts.
+# first swap K, M, B with 1e3, 1e6 and 1e9 respectively
+
+clean$property_damage_cat[clean$property_damage_cat == ""] <- 1
+clean$property_damage_cat[clean$property_damage_cat == "K"] <- 1e3
+clean$property_damage_cat[clean$property_damage_cat == "M"] <- 1e6
+clean$property_damage_cat[clean$property_damage_cat == "B"] <- 1e9
+
+clean$crop_damage_cat[clean$crop_damage_cat == ""] <- 1
+clean$crop_damage_cat[clean$crop_damage_cat == "K"] <- 1e3
+clean$crop_damage_cat[clean$crop_damage_cat == "M"] <- 1e6
+clean$crop_damage_cat[clean$crop_damage_cat == "B"] <- 1e9
+
+# now multiply to get correct damage values
+
+clean$property_damage <- as.numeric(clean$property_damage) * as.numeric(clean$property_damage_cat)
+
+clean$crop_damage <- as.numeric(clean$crop_damage) * as.numeric(clean$crop_damage_cat)
+
+
+state_harm <- clean %>%
+  group_by(state_id) %>%
+  summarise(number_of_events = n(),
+            damage = (sum(property_damage, na.rm=TRUE) + sum(crop_damage, na.rm=TRUE))/1e4,
+            fatalities = sum(fatalities),
+            injuries = sum(injuries)) %>%
+  arrange(desc(number_of_events))
+
+state_harm <- merge(state_harm, states)
+
+
+# copies of dataframe to merge
+state_n <- state_harm
+state_p <- state_harm
+state_f <- state_harm
+state_i <- state_harm
+
+# rename two columns to merge on
+state_n$values <- state_n$number_of_events
+colnames(state_p)[3] <- "values"
+colnames(state_f)[4] <- "values"
+colnames(state_i)[5] <- "values"
+
+# create a label to split data on plotting
+state_n$label <- "Number of Events"
+state_p$label <- "Damages $10,000s"
+state_f$label <- "Fatalities"
+state_i$label <- "Injuries"
+
+# select only the columns we need for a merge
+state_n <- state_n %>% select(c("state_name", "values", "label", "number_of_events"))
+state_p <- state_p %>% select(c("state_name", "values", "label", "number_of_events"))
+state_f <- state_f %>% select(c("state_name", "values", "label", "number_of_events"))
+state_i <- state_i %>% select(c("state_name", "values", "label", "number_of_events"))
+
+
+# merge dataframes, remove the temprorary dataframes
+state_n <- rbind(state_n, state_p)
+state_n <- rbind(state_n, state_f)
+state_n <- rbind(state_n, state_i)
+
+state_harm <- state_n
+
+# sorting
+#arrange(state_harm, desc(number_of_events));
+
+# remove temporary dataframes
+rm(state_n, state_p, state_f, state_i)
+
+```
+
+
+```{r, echo = TRUE}
+# plot for the top 20 by total of fatalities and injuries
+g <- ggplot(state_harm, aes(x = values,
+                 y = reorder(state_name, number_of_events),
+                 colour = label),
+                 size = 3, shape = 22) + 
+  
+  theme_economist() + 
+  
+  scale_colour_stata() +
+  
+  geom_point() +
+  
+  labs(x = NULL,
+       y = NULL,
+       colour = NULL,
+       title = "Destructive Weather Events in the United States",
+       subtitle = "Source: National Climatic Data Center Storm Events 1950 - 2011",
+       caption = "*Damages are estimates\n1950-54 only tornado events recorded\n 1955-92 only tornado, thunderstorm wind and hail events keyed to digital\n1993-95 only tornado, thunderstorm wind and hail events keyed to digital") +
+  
+  guides(fill = guide_legend(title = NULL)) + 
+  
+  scale_fill_discrete(labels = c("Fatalities",
+                                 "Injuries",
+                                 "Events",
+                                 "Damages $10,000s")) +
+  
+  theme(
+    legend.position = "bottom",
+    panel.grid.major.x = element_line(colour = "white",
+                                      size = 1,
+                                      linetype = "dotted")) + 
+  
+  scale_x_log10(breaks = c(1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7),
+                labels = c("10", "100", "1,000","10,000", "100,000", "1,000,000", "10,000,000"))
+
+ggplotly(g)
+```
