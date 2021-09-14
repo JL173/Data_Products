@@ -34,20 +34,23 @@ LogisticLoop <- function(Xi, r, iter = 100){
 }
 
 # Calculates Stable solutions for growth rates
-StableSolutions <- function(n = 5, iter = 1000, tol = 1e-3){
+StableSolutions <- function(n = 5, iter = 2000, tol = 1e-3){
   # n, power of 2 for bifurcations
   # iter, number of test solution pairs squared
   # tol, tolerance
   
   x <- seq(from = 0, to = 1, length.out = iter)
   
-  r <- seq(from = 0, to = 4, length.out = iter)
+  r1 <- seq(from = 0, to = 3, length.out = iter*0.2)
+  r2 <- seq(from = 3, to = 4, length.out = iter*0.8)
+  
+  r <- c(r1, r2)
   
   solutions <- data.frame(R = c(), X = c())
   
   for (ri in r){
     
-    stable <- (ri - 1)/(ri + 1e-12)    # avoid /0
+    stable <- (ri - 1)/(ri + 1e-16)    # avoid /0
     
     for (xi in x){
 
