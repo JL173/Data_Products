@@ -1,0 +1,177 @@
+---
+title: "ShinyApp - Logistic Function"
+author: "JL"
+date: "09/2021"
+output: slidy_presentation
+---
+```{r, include = FALSE}
+
+library(dplyr)
+## Helper Functions
+
+# LogisticEquation
+LogisticEquation <- function(Xn, r){
+  
+  # Xn, the first position, proportional to
+  # the current population 0 < Xn < 1
+  
+  # r, the growth rate
+  
+  Xn_1 <- Xn
+  Xn_1 <- r * Xn * (1 - Xn)
+  Xn_1
+}
+
+# Repeated LogisticEquation to return a vector
+LogisticLoop <- function(Xi, r, iter = 100){
+  
+  # Xi, the first position, proportional to
+  # the current population 0 < Xi < 1
+  
+  # r, the growth rate
+  
+  # iter, number of iterations
+
+  X_vector <- c(Xi)
+  Xii <- NULL
+  for (index in 1:iter){
+    Xii <- LogisticEquation(Xi, r)
+    X_vector <- c(X_vector, Xii)
+    Xi <- Xii
+  }
+  X_vector
+}
+
+# Calculates Stable solutions for growth rates
+StableSolutions <- function(n = 5, iter = 2000, tol = 1e-3){
+  # n, power of 2 for bifurcations
+  # iter, number of test solution pairs squared
+  # tol, tolerance
+  
+  x <- seq(from = 0, to = 1, length.out = iter)
+  
+  r1 <- seq(from = 0, to = 3, length.out = iter*0.2)
+  r2 <- seq(from = 3, to = 4, length.out = iter*0.8)
+  
+  r <- c(r1, r2)
+  
+  solutions <- data.frame(R = c(), X = c())
+  
+  for (ri in r){
+    
+    stable <- (ri - 1)/(ri + 1e-16)    # avoid /0
+    
+    for (xi in x){
+
+      if (abs(xi - stable) <= tol){
+        
+        stable_pairs <- data.frame(R = c(ri), X = c(xi))
+        
+        sols <- c(xi)
+        sol1_x <- xi
+        
+        for (index in 1:2^n){
+          
+          sol2_x <- LogisticEquation(sol1_x, ri)
+          
+          if ((abs(sol1_x - sol2_x) > tol) & !(sol2_x %in% sols)){
+            
+            sols <- c(sols, sol2_x)
+            stable_pairs <- rbind(stable_pairs, c(ri, sol2_x))
+            sol1_x <- sol2_x
+            
+          } else { 
+            
+            break
+          }
+        }
+        
+        solutions <- rbind(solutions, stable_pairs)
+      }
+    }
+  }
+  names(solutions) <- c("R", "X")
+  solutions
+}
+
+```
+
+
+## The Logistic Function
+
+The Logistic Function is especially useful in modelling Population Growth.
+
+We can model the logistic function in R like so
+
+```{r}
+LogisticEquation <- function(Xn, r){
+  
+  # Xn, the first position, proportional to
+  # the current population 0 < Xn < 1
+  
+  # r, the growth rate
+  
+  Xn_1 <- Xn
+  Xn_1 <- r * Xn * (1 - Xn)
+  Xn_1
+}
+```
+We take an initial population `Xn` and we get the next iteration, `Xn_1`. The growth rate, `r` controls this.
+
+## An example
+
+With an initial population of `0.2` (that is, half of the maximum possible population), and a growth rate of `2` we have the following. It reaches a population cap at about 0.5, after only a few iterations.
+
+```{r echo=FALSE, fig.width = 10}
+xVector <- LogisticLoop(0.2, 2, iter = 25)
+xMean <- mean(xVector)
+
+plot(xVector, xlab = "Iterations",ylab = "Population",
+     col = "red",  ylim = c(0,1))
+lines(xVector, col = "red", lwd = 1)
+abline(h = xMean, col = "blue")
+```
+
+## Growth Rate above 3
+
+If we take the growth rate above `3`, chaotic behaviour begins to happen, regardless of initial population. It reaches a population cap at about 0.5, after only a few iterations. Here is r = 3.5. Notice though that there are repeated solutions...
+
+```{r echo=FALSE, fig.width = 10}
+xVector1 <- LogisticLoop(0.2, 3.5, iter = 25)
+xMean1 <- mean(xVector1)
+xVector2 <- LogisticLoop(0.5, 3.5, iter = 25)
+xMean2 <- mean(xVector2)
+xVector3 <- LogisticLoop(0.7, 3.5, iter = 25)
+xMean3 <- mean(xVector3)
+
+par(mfrow = c(1,3))
+plot(xVector1, xlab = "Iterations",ylab = "Population", col = "red", ylim = c(0,1), main="X0 = 0.2")
+lines(xVector1, col = "red", lwd = 1)
+abline(h = xMean1, col = "blue")
+
+plot(xVector2, xlab = "Iterations",ylab = "Population", col = "red", ylim = c(0,1), main="X0 = 0.5")
+lines(xVector2, col = "red", lwd = 1)
+abline(h = xMean2, col = "blue")
+
+plot(xVector3, xlab = "Iterations",ylab = "Population", col = "red", ylim = c(0,1), main="X0 = 0.7")
+lines(xVector3, col = "red", lwd = 1)
+abline(h = xMean3, col = "blue")
+```
+
+## Stable Solutions
+
+We know that at r = 3, we begin to chaotic behaviour. But where are the stable solutions for each r? Here they are.
+
+And our ShinyApp can let you interact with this.
+
+```{r echo=FALSE, fig.width = 10}
+solutions <- StableSolutions()
+
+stableMeans <- solutions %>% group_by(R) %>% summarise(mean(X))
+        
+plot(solutions, xlab = "Growth Rate",
+    ylab = "Population", col = "red",
+    pch = ".",
+    main = "Stable Solutions of the Logistic Equation")
+lines(stableMeans, col = "blue")
+```
